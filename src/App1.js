@@ -1,128 +1,95 @@
 import React, { Component } from 'react'
-//ProposType包:不仅可以指定你要传递的prop的具体类型（字符串、数组、对象、函数等）
-import PropTypes from 'prop-types'
-import { Link } from 'react-router-dom'
-//实现筛选功能导入的包
-import escapeRegExp from 'escape-string-regexp'
-import sortBy from 'sort-by'
+import { Route } from 'react-router-dom'
+import ListContacts1 from './ListContacts1'
+import CreateContact1 from './CreateContact1'
+import * as ContactsAPI from './utils/ContactsAPI'
 
-class ListContacts1 extends Component {
+// //需将这些联系人传递给我们即将创建的新组件，然后油该组件负责将它们实际显示给视图
+// const contacts = [
+//   {
+//     "id": "ryan",
+//     "name": "Ryan Florence",
+//     "email": "ryan@reacttraining.com",
+//     "avatarURL": "http://localhost:5001/ryan.jpg"
+//   },
+//   {
+//     "id": "michael",
+//     "name": "Michael Jackson",
+//     "email": "michael@reacttraining.com",
+//     "avatarURL": "http://localhost:5001/michael.jpg"
+//   },
+//   {
+//     "id": "tyler",
+//     "name": "Tyler McGinnis",
+//     "email": "tyler@reacttraining.com",
+//     "avatarURL": "http://localhost:5001/tyler.jpg"
+//   }
+// ]
 
-  static propTypes = {
-    contacts: PropTypes.array.isRequired,
-    onDeleteContact: PropTypes.func.isRequired
-  }
-  //将输入字段与状态的特定属性的值绑定,这样做的目的是它将允许我们根据此表单数据来更新UI
-  //创建受控组件
-
-  //我们需要在ListContacts中引入状态，以跟踪输入字段的状态
+class App1 extends Component {
+  //将contacts移入组件中，由app组件来管理其状态，那么状态发生了改变React就会基于状态变化来更新用户界面
   state = {
-    query: ''
-  }
-  //每当字段发生变化时，便更新query
-  updateQuery = (query) => {
-    //不会根据之前的状态更新状态
-    this.setState({
-      //直接传递对象,让query等于query.trim(删掉周围额外的空格)的值
-      query: query.trim()
-    })
+    //需将这些联系人传递给我们即将创建的新组件，然后油该组件负责将它们实际显示给视图
+    contacts : []
   }
 
-  clearQuery = () => {
-  	this.setState({
-  		query: ''
-  	})
+  //想从 API 外部获取数据，应使用componentDidMount生命周期事件
+
+  componentDidMount() {
+  	//调用contactsAPI.getAll()，将返回一个 promise 对象，然后调用.then 方法
+  	ContactsAPI.getAll().then((contacts) => {
+  	  this.setState({
+  	  	contacts: contacts
+  	  })
+  	} )
   }
- render() {
- 	//对象解构 多次出现this.props.contacts this.state.quert
- 	const { contacts, onDeleteContact} = this.props
- 	const { query } = this.state
-
-   //返回的是一个具有contacts属性的对象
-   console.log('Props:', this.props )
-   //创建符合特定模式的联系人
-   let showingContacts
-
-   //输入框中输入了内容则找出哪里联系人符合
-   if(query) {
-   	const match = new RegExp(escapeRegExp(this.state.query), 'i')
-   	//如果query 为tyler，则match.test('Tyler')返回true
-   	//.test()检索字符串中的特定值，返回值是true/false
-   	showingContacts = contacts.filter((contact) => match.test(contact.name) )
-   	console.log("showingContacts:" + showingContacts)
-   } else {
-   	showingContacts = contacts
-   }
-   //按照名字字母排序
-   showingContacts.sort(sortBy('name'))
-
-   return (
-     <div className='list-contacts'>
-     {/*每当我们打字时，query状态会随着输入字段的更新而更新*/}
-     {JSON.stringify(this.state)}
-      <div className='list-contacts-top'>
-      {/*1.想让此输入字段的值=this.state.query
-        2.每当输入字段发生变化时，就触发事件,，调用updateQuery函数时，
-          传递给它输入字段的特定值*/}
-        <input
-          className='search-contacts'
-          type='text'
-          placeholder='search contacts'
-          value={query}
-          onChange={(event) => this.updateQuery(event.target.value)}
-        />
-        {/*添加联系人*/}
-        <Link
-          to='/create'
-          className='add-contact'
-        >Add Contact</Link>
 
 
+  //1.在状态所在的位置写一个remove函数负责更新我们删除联系人的状态
+  //2.然后将此函数放入props中并向下传递给listContacts
+  //3.最后再我们的ListContacts组件中与删除按钮关联
+
+  //调用该函数时，它将传递被点击的特定联系人，然后过滤状态上的当前联系人
+  //即删除状态联系人ID与被点击联系人ID不相等的地方，从而获得一个全新的数组
+  //然后我们传递给setState的，从reducer函数返回的对象将与当前状态合并
+  removeContact = (contact) => {
+    //拿取要删除的contact，再更新状态
+    //方法一：向它传递一个函数，此函数将返回一个全新的对象，它将与当前状态合并
+    //判别：需要根据当前状态更新,即传入这个函数的第一个参数将是当前状态
+    this.setState((state) => ({
+      //返回一个新的联系人列表
+      //state.contacts将是我们状态的当前联系人数组
+      contacts: state.contacts.filter((c) => c.id !== contact.id)
+    }))
+    // //方法二：直接传递一个对象，此对象将与当前状态合并
+    // //判别:不需要根据当前状态更新
+    // this.setState({
+    //
+    // })
+
+     //调用api 中的 remove方法更新后端数据库
+    ContactsAPI.remove(contact)
+
+  }
+
+  render() {
+    return (
+      <div>
+        {/*将contacts数组传递给ListContacts组件
+           1.向ListContacts组件添加一个属性
+           2.获取contacts数组，需从组件内部访问state属性，传递给该组件
+           3.然后再该组件中访问此数组的方式：通过this.props访问
+           4.最后又将该数组设置成状态，即通过this.state访问*/}
+        {/*将removeContact传递给ListContacts组件 */}
+        <Route exact path='/' render={() => (
+            <ListContacts1 
+            	onDeleteContact={this.removeContact} 
+            	contacts={this.state.contacts}
+             />
+        )}/>
+        <Route path='/create' component={CreateContact1}/>
       </div>
-  	  {/*显示通讯录条数
-  	  	1.根据现在的状态动态渲染此div*/}
-      {showingContacts.length !== contacts.length && (
-      	<div className='showing-contacts'>
-          <span>Now showing {showingContacts.length} of {contacts.length} total</span>
-		  <button onClick={this.clearQuery}>show all</button>
-      	</div>
-      )}  
-      <ol className='contact-list'>
-        {/* 创造一个列表项
-          1.向map传递一个函数,这个函数会被数组中的每一项逐个调用 
-      	  2.只需遍历符合特定模式的联系人，则通过正则表达式筛选*/}
-        {showingContacts.map((contact) => (
-          //成为数组中每一项的指定用户界面 数组或迭代时，应每个项都有唯一的一个key属性
-          <li key={contact.id} className='contact-list-item'>
-            {/* 显示联系人信息
-             1.先创建头像(这个div的背景就是该头像,style是一个对象
-             url中使用了ES6 模板字符串)
-             2.再显示联系人详情3.最后创建删除按钮 */}
-            <div className='contact-avatar' style={{
-              backgroundImage: `url(${contact.avatarURL})`,
-            }}/>
-            <div className='contact-details'>
-              <p>{contact.name}</p>
-              <p>{contact.email}</p>
-            </div>
-            {/* this.props.onDeleteContact每当此按钮被点击时调用它
-              这个箭头函数的作用：将调用this.props.onDeleteContact
-              向它传递我们正在迭代的特定联系人*/}
-            <button onClick={() => onDeleteContact(contact)} className='contact-remove'>
-              Remove
-            </button>
-          </li>
-        ))}
-      </ol>
-     </div>
-   )
- }
+    )
+  }
 }
-
-// //使用PropTypes进行类型检查
-// ListContacts1.propTypes = {
-//   contacts: PropTypes.array.isRequired,
-//   onDeleteContact: PropTypes.func.isRequired
-// }
-
-export default ListContacts1
+export default App1;
